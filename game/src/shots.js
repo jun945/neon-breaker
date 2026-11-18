@@ -1,79 +1,162 @@
-// Deterministic shot staging: drive a fresh world through real rules to a fixed scene.
-// Same seed => same frame, no wall clock. stageShot returns what the renderer needs.
-import { STEP, PLAYER, FIELD } from './config.js';
-import { KIND_HAZARD, EVENT_OVER } from './world.js';
-import { SCREEN_TITLE, SCREEN_PLAY, SCREEN_OVER } from './render.js';
+import { BALL, COLORS, PADDLE, POWERUPS, POWERUP } from './config.js';
+import { World } from './world.js';
 
-const START_SECONDS = 5;
-const PLAY_SECONDS = 28;
-const END_LIMIT_SECONDS = 900;
-const HORIZON_PLAY = 0.75;
-const HORIZON_END = 0.2;
-const SAMPLE = 1 / 30;
-const DIRECTIONS = [
-  { x: 0, y: 0 }, { x: -1, y: 0 }, { x: 1, y: 0 },
-  { x: 0, y: -1 }, { x: 0, y: 1 },
-  { x: -1, y: -1 }, { x: 1, y: -1 }, { x: -1, y: 1 }, { x: 1, y: 1 },
-];
-const PLAY_TOP = 120;
-const PLAY_BOTTOM = FIELD.groundY;
+function makePowerup(type, x, y, phase = 0) {
+  return {
+    type,
+    x,
+    y,
+    vy: POWERUP.fallSpeed,
+    size: POWERUP.size,
+    color: POWERUPS[type].color,
+    phase,
+    born: 0,
+  };
+}
 
-function timeToHit(state, dir, horizon) {
-  const p = state.player;
-  const speed = PLAYER.speed;
-  const len = Math.hypot(dir.x, dir.y) || 1;
-  const vx = (dir.x / len) * speed, vy = (dir.y / len) * speed;
-  for (let t = SAMPLE; t <= horizon; t += SAMPLE) {
-    const px = Math.min(FIELD.width - p.width / 2, Math.max(p.width / 2, p.x + vx * t));
-    const py = Math.min(PLAY_BOTTOM - p.height / 2, Math.max(PLAY_TOP + p.height / 2, p.y + vy * t));
-    for (const it of state.items) {
-      if (!it.active || it.kind !== KIND_HAZARD) continue;
-      const hy = it.y + it.speed * t;
-      const hx = it.x + it.drift * t;
-      if (Math.abs(px - hx) * 2 < (p.width + it.width) + 14 &&
-          Math.abs(py - hy) * 2 < (p.height + it.height) + 14) return t;
+function makeBall(x, y, vx, vy, colorIndex = 0) {
+  const magnitude = Math.hypot(vx, vy) || 1;
+  const trail = [];
+  for (let i = 14; i >= 0; i -= 1) {
+    trail.push({
+      x: x - (vx / magnitude) * i * 13,
+      y: y - (vy / magnitude) * i * 13,
+    });
+  }
+  return {
+    x,
+    y,
+    vx,
+    vy,
+    r: BALL.radius,
+    stuck: false,
+    trail,
+    trailClock: 0.013,
+    dead: false,
+    colorIndex,
+  };
+}
+
+function stagePlay(world) {
+  world.state = 'playing';
+  world.spawnWave(4, { silent: true });
+  world.banner = null;
+  world.waveClear = false;
+  world.waveClearTimer = 0;
+  world.score = 128450;
+  world.best = 174920;
+  world.lives = 3;
+  world.combo = 17;
+  world.comboTimer = 2.65;
+  world.effects.wide = 9.2;
+  world.effects.slow = 0;
+  world.shield = 1;
+  world.paddle.x = 765;
+  world.paddle.w = PADDLE.width + PADDLE.wideBonus;
+  world.paddle.y = PADDLE.y;
+  world.time = 21.7;
+  world.flash = 0.08;
+  world.flashColor = COLORS.violet;
+  world.shake = 1.8;
+  world.powerups = [
+    makePowerup('multi', 1046, 624, 1.7),
+    makePowerup('wide', 432, 548, 3.9),
+  ];
+
+  const removed = [];
+  world.bricks.forEach((brick, index) => {
+    if (brick.alive && index % 9 === 4) {
+      brick.alive = false;
+      removed.push(brick);
     }
-  }
-  return Infinity;
+    if (brick.alive && (index === 2 || index === 18)) brick.hitFlash = 0.82;
+  });
+
+  removed.slice(0, 5).forEach((brick, index) => {
+    world.spawnBurst(
+      brick.x + brick.w / 2,
+      brick.y + brick.h / 2,
+      index % 2 === 0 ? COLORS.pink : COLORS.cyan,
+      8,
+      0.95,
+    );
+  });
+  world.spawnBurst(862, 392, COLORS.violet, 25, 1.15);
+  world.spawnBurst(1118, 356, COLORS.lime, 18, 0.95);
+  world.addShockwave(862, 392, COLORS.violet, 180);
+  world.addShockwave(460, 470, COLORS.cyan, 140);
+  world.addFloater(878, 350, '+760', COLORS.lime, 17);
+  world.addFloater(486, 438, 'CHAIN x5', COLORS.cyan, 13);
+
+  world.balls = [
+    makeBall(918, 470, 434, -318, 0),
+    makeBall(378, 598, -286, -438, 1),
+  ];
 }
 
-function autopilot(state, horizon) {
-  const p = state.player;
-  // target nearest low node
-  let target = null, bestD = Infinity;
-  for (const it of state.items) {
-    if (!it.active || it.kind !== 1) continue;
-    const d = (it.y - p.y) + Math.abs(it.x - p.x) * 0.35;
-    if (it.y > p.y - 40 && d < bestD) { bestD = d; target = it; }
+function stageEnd(world) {
+  world.spawnWave(5, { silent: true });
+  world.state = 'gameover';
+  world.endReason = 'lost';
+  world.wave = 5;
+  world.score = 96840;
+  world.best = 174920;
+  world.lives = 0;
+  world.combo = 0;
+  world.comboTimer = 0;
+  world.shield = 0;
+  world.effects.wide = 0;
+  world.effects.slow = 0;
+  world.banner = null;
+  world.powerups = [];
+  world.balls = [];
+  world.paddle.x = 948;
+  world.paddle.y = PADDLE.y;
+  world.time = 18.4;
+  world.shake = 0;
+  world.flash = 0;
+
+  const broken = [];
+  world.bricks.forEach((brick, index) => {
+    if (brick.alive && index % 3 !== 1) {
+      brick.alive = false;
+      if (index % 6 === 0) broken.push(brick);
+    }
+    if (brick.alive && index % 8 === 0) brick.hitFlash = 0.7;
+  });
+  for (const [index, brick] of broken.slice(0, 7).entries()) {
+    world.spawnBurst(
+      brick.x + brick.w / 2,
+      brick.y + brick.h / 2,
+      index % 2 === 0 ? COLORS.pink : COLORS.coral,
+      4,
+      0.55,
+    );
   }
-  let want = { x: 0, y: 0 };
-  if (target) {
-    if (target.x - p.x > 10) want.x = 1; else if (target.x - p.x < -10) want.x = -1;
-    if (target.y - p.y > 10) want.y = 1; else if (target.y - p.y < -10) want.y = -1;
-  } else {
-    if (p.x < FIELD.width / 2 - 20) want.x = 1; else if (p.x > FIELD.width / 2 + 20) want.x = -1;
-  }
-  if (timeToHit(state, want, horizon) === Infinity) return want;
-  let best = null, bestT = -1;
-  for (const d of DIRECTIONS) {
-    const t = timeToHit(state, d, horizon);
-    if (t > bestT) { bestT = t; best = d; }
-  }
-  return best;
+  world.addShockwave(788, 522, COLORS.pink, 240);
 }
 
-export function stageShot(name, world) {
-  world.reset();
-  if (name !== 'play' && name !== 'end') {
-    for (let i = 0; i < START_SECONDS / STEP; i++) world.step(STEP, { x: 0, y: 0 }, true);
-    return { screen: SCREEN_TITLE, best: 0 };
-  }
-  const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const horizon = name === 'end' ? HORIZON_END : HORIZON_PLAY;
-  for (let i = 0; i < limit / STEP; i++) {
-    const dir = autopilot(world.state, horizon);
-    if (world.step(STEP, dir, false) & EVENT_OVER) break;
-  }
-  const over = world.state.lives === 0;
-  return { screen: over ? SCREEN_OVER : SCREEN_PLAY, best: world.state.score };
+function stageStart(world) {
+  world.state = 'title';
+  world.score = 0;
+  world.best = 174920;
+  world.lives = 3;
+  world.wave = 1;
+  world.combo = 0;
+  world.time = 7.4;
+  world.banner = null;
+  world.balls = [];
+  world.powerups = [];
+  world.paddle.x = 720;
+  world.paddle.w = PADDLE.width;
+}
+
+export function makeShotWorld(kind, seed = 1) {
+  const numericSeed = Number(seed);
+  const world = new World({ seed: Number.isFinite(numericSeed) ? numericSeed : 1 });
+  world.frozen = true;
+  if (kind === 'play') stagePlay(world);
+  else if (kind === 'end') stageEnd(world);
+  else stageStart(world);
+  return world;
 }

@@ -1,40 +1,103 @@
-// NEON PULSE - tunable constants. Rule code never reads real screen size.
-export const FIELD = { width: 1280, height: 720, groundY: 662 };
-export const STEP = 1 / 60;
+// Shared tuning and palette. Everything is authored in a fixed 1440×900 space;
+// the renderer letterboxes and scales it to the browser.
 
-export const PLAYER = {
-  width: 58, height: 58, speed: 640, invulnerable: 1.7,
-};
-export const LIVES = 3;
+export const VIEW = Object.freeze({ width: 1440, height: 900 });
 
-// Energy nodes (pickups)
-export const NODE = {
-  size: 26, speed: 205, speedPerLevel: 15,
-  interval: 0.82, intervalJitter: 0.45, minInterval: 0.2, points: 10,
-};
-// Disturbance blocks (hazards)
-export const HAZARD = {
-  size: 44, speed: 265, speedPerLevel: 34, speedJitter: 120,
-  interval: 0.6, intervalScale: 0.9, minInterval: 0.15,
-};
+export const ARENA = Object.freeze({
+  x: 126,
+  y: 166,
+  width: 1188,
+  height: 694,
+  left: 140,
+  right: 1300,
+  top: 180,
+  bottom: 852,
+});
 
-export const LEVEL = { seconds: 15, max: 12 };
+export const PADDLE = Object.freeze({
+  y: 801,
+  width: 158,
+  height: 18,
+  speed: 1040,
+  wideBonus: 58,
+  minX: 152,
+  maxX: 1288,
+});
 
-// Combo multiplier: 1 + floor(combo / step), capped at max. Overdrive doubles it.
-export const COMBO = { step: 3, max: 8 };
-export const OVERDRIVE = { combo: 9, seconds: 6 };
+export const BALL = Object.freeze({
+  radius: 9,
+  baseSpeed: 575,
+  waveSpeed: 22,
+  maxSpeed: 1060,
+});
 
-export const POOL_SIZE = 96;
-export const PARTICLES = 180;
-export const SHAKE_DECAY = 3.4;
+export const BRICKS = Object.freeze({
+  left: 164,
+  top: 252,
+  columns: 11,
+  rows: 6,
+  width: 92,
+  height: 28,
+  gapX: 10,
+  gapY: 10,
+});
 
-export const PALETTE = {
-  backdrop: '#080b14', sky: '#0d1220', grid: '#16203a', ground: '#1b2742',
-  player: '#5ef2ff', playerCore: '#ffffff',
-  node: '#5cffb1', nodeCore: '#eafff5',
-  hazard: '#ff3d8b', hazardCore: '#ffd0e6',
-  text: '#eaf6ff', muted: '#7f93b5', accent: '#ffd166',
-  overdrive: '#b26bff', panel: '#0e1628', panelEdge: '#2de2e6',
-};
-export const FONT = 'ui-monospace, "SFMono-Regular", Consolas, monospace';
-export const BEST_KEY = 'neon-pulse.best';
+export const POWERUP = Object.freeze({
+  size: 38,
+  fallSpeed: 118,
+  dropChance: 0.135,
+});
+
+export const COLORS = Object.freeze({
+  void: '#05030d',
+  deep: '#0b0720',
+  ink: '#070713',
+  cyan: '#54f7ff',
+  cyanSoft: '#8ffcff',
+  pink: '#ff2f9e',
+  pinkSoft: '#ff8ac7',
+  violet: '#a768ff',
+  violetSoft: '#d4b5ff',
+  lime: '#b9ff67',
+  amber: '#ffd166',
+  coral: '#ff745c',
+  white: '#f7fbff',
+  mist: 'rgba(198, 229, 255, 0.62)',
+  dim: 'rgba(155, 191, 225, 0.35)',
+});
+
+export const ROW_COLORS = Object.freeze([
+  COLORS.pink,
+  COLORS.violet,
+  COLORS.cyan,
+  COLORS.lime,
+  COLORS.amber,
+  COLORS.coral,
+]);
+
+export const WAVES = Object.freeze([
+  { name: 'SIGNAL', tag: 'FIRST CONTACT', rows: 5, speed: 575 },
+  { name: 'PHASE', tag: 'DEAD CHANNEL', rows: 5, speed: 598 },
+  { name: 'SHATTER', tag: 'HARD LIGHT', rows: 6, speed: 620 },
+  { name: 'VERTEX', tag: 'PRISM EVENT', rows: 6, speed: 645 },
+  { name: 'OVERDRIVE', tag: 'RED LINE', rows: 6, speed: 676 },
+  { name: 'THE CORE', tag: 'FINAL FIREWALL', rows: 6, speed: 705 },
+]);
+
+export const POWERUPS = Object.freeze({
+  wide: { label: 'WIDE', glyph: 'W', color: COLORS.cyan, blurb: 'PADDLE AMPLIFIED' },
+  multi: { label: 'TRI', glyph: '3', color: COLORS.lime, blurb: 'MULTI-PULSE' },
+  slow: { label: 'SLOW', glyph: 'S', color: COLORS.violet, blurb: 'TIME DILATION' },
+  shield: { label: 'AEGIS', glyph: 'A', color: COLORS.pink, blurb: 'ONE SAVE' },
+  life: { label: 'CORE', glyph: '+', color: COLORS.amber, blurb: 'EXTRA SIGNAL' },
+});
+
+export const FONT = Object.freeze({
+  ui: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+  mono: '"Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace',
+  display: '"Arial Black", "Segoe UI Black", Impact, sans-serif',
+});
+
+export const clamp = (value, min, max) => (value < min ? min : value > max ? max : value);
+export const lerp = (a, b, t) => a + (b - a) * t;
+export const padScore = (score) => Math.max(0, Math.floor(score)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');

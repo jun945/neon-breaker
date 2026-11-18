@@ -1,18 +1,93 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>NEON PULSE</title>
-<style>
-  html,body { margin:0; height:100%; overflow:hidden; background:#080b14; }
-  #game { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
-  #status { position:absolute; width:1px; height:1px; clip-path:inset(50%); overflow:hidden; white-space:nowrap; }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05030d">
+  <meta name="description" content="NEON BREAKER — a synthwave brick-breaker. Smash the grid, chain combos, and survive the core.">
+  <title>NEON BREAKER</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #05030d;
+      --cyan: #54f7ff;
+      --pink: #ff2f9e;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 58%, rgba(91, 36, 152, .28), transparent 45%),
+        radial-gradient(circle at 20% 18%, rgba(20, 123, 155, .12), transparent 34%),
+        #030209;
+      color: #fff;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+
+    #stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    #game {
+      display: block;
+      background: #05030d;
+      box-shadow:
+        0 0 0 1px rgba(84, 247, 255, .12),
+        0 0 80px rgba(255, 47, 158, .12),
+        0 0 180px rgba(84, 247, 255, .06);
+      outline: none;
+      cursor: crosshair;
+    }
+
+    #boot {
+      position: fixed;
+      left: 50%;
+      bottom: 7vh;
+      transform: translateX(-50%);
+      font: 600 10px/1.4 "Cascadia Mono", Consolas, monospace;
+      letter-spacing: .32em;
+      color: rgba(144, 244, 255, .55);
+      text-transform: uppercase;
+      pointer-events: none;
+      animation: flicker 1.4s steps(2, end) infinite;
+    }
+
+    @keyframes flicker {
+      0%, 82%, 100% { opacity: .8; }
+      84% { opacity: .2; }
+      86% { opacity: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #boot { animation: none; }
+    }
+  </style>
 </head>
 <body>
-<canvas id="game" aria-label="NEON PULSE: steer the pulse core, collect energy nodes, dodge disturbance blocks."></canvas>
-<p id="status" role="status" aria-live="polite"></p>
-<script type="module" src="./src/main.js"></script>
+  <main id="stage">
+    <canvas id="game" width="1440" height="900" aria-label="NEON BREAKER: a neon brick-breaker game. Move the paddle with the mouse or A and D. Press space to launch the ball."></canvas>
+  </main>
+  <div id="boot" aria-hidden="true">Linking pulse grid</div>
+  <noscript>NEON BREAKER needs JavaScript enabled.</noscript>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>

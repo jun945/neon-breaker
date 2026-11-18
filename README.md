@@ -1,10 +1,12 @@
-# NEON PULSE
+# NEON BREAKER
 
-A neon synthwave arcade survival game. Steer the glowing pulse core, collect green energy nodes, dodge pink disturbance blocks. Chain pickups to build a combo multiplier and trigger **OVERDRIVE** for double points. Pure static HTML5 canvas — no build step, no dependencies, runs offline.
+A synthwave brick-breaker built for the edge of the grid. Steer the pulse paddle, keep the ball alive, chain brick breaks into a rising multiplier, catch powerups, and break through six waves to reach **THE CORE**.
+
+Pure static HTML5 canvas — no build step, no dependencies, no network. Runs offline.
 
 [![Play on make.fun](https://make.fun/badge/best-game-01.svg)](https://make.fun/c/best-game-01)
-[![Rank](https://make.fun/badge/best-game-01/jun945/neon-pulse/rank.svg)](https://make.fun/c/best-game-01)
-[![Reward](https://make.fun/badge/best-game-01/jun945/neon-pulse/reward.svg)](https://make.fun/c/best-game-01)
+[![Rank](https://make.fun/badge/best-game-01/jun945/neon-breaker/rank.svg)](https://make.fun/c/best-game-01)
+[![Reward](https://make.fun/badge/best-game-01/jun945/neon-breaker/reward.svg)](https://make.fun/c/best-game-01)
 
 ## Play
 
@@ -14,15 +16,40 @@ Open `game/index.html` in a browser, or serve the folder:
 node serve.ts          # http://localhost:8080
 ```
 
-Controls: **Arrow keys / WASD** to move, **Space / Enter / click** to start & restart, **P / Esc** to pause.
+- **Mouse / touch, A / D, or arrow keys** — move the paddle
+- **Space / Enter / click** — launch, start, and restart
+- **P / Esc** — pause
+- **M** — mute
 
-## How it works
+## The run
 
-- `game/src/world.js` — deterministic seeded rules (pickups, hazards, combo, overdrive, levels).
-- `game/src/render.js` — neon canvas renderer with synthwave backdrop, grid floor and HUD.
-- `game/src/input.js` — keyboard + pointer input.
-- `game/src/shots.js` — deterministic shot staging for `?shot=` screenshots.
-- `main.ts` — copies `game/` + `screenshots/` to `/output` and writes `dossier.json` via `vendor/makefun-game.ts`.
+- Six hand-tuned wave layouts, ending in a 30-hit boss core.
+- Break bricks back-to-back to build a chain. Every four links raises the score multiplier, up to ×8.
+- Four powerups plus a rare extra life: **WIDE** paddle, **TRI** multiball, **SLOW** time, and the one-use **AEGIS** barrier.
+- A local best score survives reloads. Audio is synthesized live with Web Audio — no sound files.
+- `?shot=start`, `?shot=play`, and `?shot=end` stage deterministic scenes for screenshots.
+
+## Build the entry
+
+```sh
+node main.ts                         # writes /output
+# Windows local check:
+$env:OUTPUT_DIR = "out"; node main.ts
+```
+
+`main.ts` copies `game/` and `screenshots/` into the output directory and writes `dossier.json` with `vendor/makefun-game.ts`.
+
+## Structure
+
+- `game/index.html` — shell and styling
+- `game/src/main.js` — boot, input actions, and the frame loop
+- `game/src/world.js` — seeded simulation: physics, bricks, combos, powerups, waves
+- `game/src/render.js` — neon canvas renderer, synthwave backdrop, HUD, title and end screens
+- `game/src/audio.js` — procedural Web Audio sound effects and pulse track
+- `game/src/input.js` — keyboard and pointer controls
+- `game/src/shots.js` — deterministic screenshot staging
+- `game/src/config.js` — tuning constants and palette
+- `game/src/random.js` — seeded PRNG helpers
 
 ## License
 

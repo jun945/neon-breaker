@@ -1,48 +1,107 @@
-// Keyboard/pointer input. Held direction is polled; confirm/pause are one-shot actions.
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+// Keyboard + pointer input, translated into the game's fixed virtual coordinate space.
+// `pressed` holds one-shot actions for the current frame; `down` holds held keys.
 
-export function createInput(target) {
-  const held = { left: false, right: false, up: false, down: false };
-  let actions = 0;
-  const isTyping = () => {
-    const el = document.activeElement;
-    return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-  };
-  const onKey = (down) => (event) => {
-    if (isTyping()) return;
-    const c = event.code;
-    let used = true;
-    if (c === 'ArrowLeft' || c === 'KeyA') held.left = down;
-    else if (c === 'ArrowRight' || c === 'KeyD') held.right = down;
-    else if (c === 'ArrowUp' || c === 'KeyW') held.up = down;
-    else if (c === 'ArrowDown' || c === 'KeyS') held.down = down;
-    else if (down && (c === 'Space' || c === 'Enter') && !event.repeat) actions |= ACTION_CONFIRM;
-    else if (down && (c === 'KeyP' || c === 'Escape') && !event.repeat) actions |= ACTION_PAUSE;
-    else used = false;
-    if (used) event.preventDefault();
-  };
-  const keyDown = onKey(true);
-  const keyUp = onKey(false);
-  window.addEventListener('keydown', keyDown);
-  window.addEventListener('keyup', keyUp);
-  window.addEventListener('blur', () => {
-    held.left = held.right = held.up = held.down = false;
-  });
-  target.addEventListener('pointerdown', (event) => {
-    event.preventDefault();
-    actions |= ACTION_CONFIRM;
-  });
-  return {
-    direction() {
-      const x = (held.right ? 1 : 0) - (held.left ? 1 : 0);
-      const y = (held.down ? 1 : 0) - (held.up ? 1 : 0);
-      return { x, y };
-    },
-    takeActions() {
-      const out = actions;
-      actions = 0;
-      return out;
-    },
-  };
+const BLOCKED = new Set([
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'ArrowDown',
+  'Space',
+  'Enter',
+]);
+
+const ACTION_CODES = new Set([
+  'Space',
+  'Enter',
+  'Escape',
+  'KeyP',
+  'KeyM',
+  'KeyA',
+  'KeyD',
+  'ArrowLeft',
+  'ArrowRight',
+]);
+
+export class Input {
+  constructor(canvas, view) {
+    this.canvas = canvas;
+    this.view = view;
+    this.down = new Set();
+    this.pressed = new Set();
+    this.pointerX = view.width / 2;
+    this.pointerY = view.height / 2;
+    this.pointerActive = false;
+    this.pointerMoved = false;
+
+    this._onKeyDown = (event) => {
+      if (ACTION_CODES.has(event.code)) event.preventDefault();
+      if (!this.down.has(event.code)) this.pressed.add(event.code);
+      this.down.add(event.code);
+      if (event.code === 'KeyA' || event.code === 'KeyD' || event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
+        this.pointerActive = false;
+      }
+    };
+
+    this._onKeyUp = (event) => {
+      this.down.delete(event.code);
+    };
+
+    this._onPointerMove = (event) => {
+      const point = this.toVirtual(event.clientX, event.clientY);
+      this.pointerX = point.x;
+      this.pointerY = point.y;
+      this.pointerActive = true;
+      this.pointerMoved = true;
+    };
+
+    this._onPointerDown = (event) => {
+      if (event.button !== undefined && event.button !== 0 && event.pointerType !== 'touch') return;
+      event.preventDefault();
+      const point = this.toVirtual(event.clientX, event.clientY);
+      this.pointerX = point.x;
+      this.pointerY = point.y;
+      this.pointerActive = true;
+      this.pointerMoved = true;
+      this.pressed.add('Pointer');
+    };
+
+    this._onBlur = () => {
+      this.down.clear();
+      this.pointerActive = false;
+    };
+
+    window.addEventListener('keydown', this._onKeyDown, { passive: false });
+    window.addEventListener('keyup', this._onKeyUp);
+    window.addEventListener('blur', this._onBlur);
+    canvas.addEventListener('pointermove', this._onPointerMove);
+    canvas.addEventListener('pointerdown', this._onPointerDown);
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+  }
+
+  toVirtual(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      x: ((clientX - rect.left) / Math.max(1, rect.width)) * this.view.width,
+      y: ((clientY - rect.top) / Math.max(1, rect.height)) * this.view.height,
+    };
+  }
+
+  isDown(code) {
+    return this.down.has(code);
+  }
+
+  take(code) {
+    const found = this.pressed.has(code);
+    if (found) this.pressed.delete(code);
+    return found;
+  }
+
+  peek(code) {
+    return this.pressed.has(code);
+  }
+
+  endFrame() {
+    this.pressed.clear();
+    this.pointerMoved = false;
+  }
 }

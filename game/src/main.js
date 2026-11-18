@@ -1,113 +1,90 @@
-// NEON PULSE entry: fixed-step loop, four screens, deterministic shot mode.
-import { STEP, BEST_KEY } from './config.js';
-import { createRandom } from './random.js';
-import { createWorld, EVENT_HIT, EVENT_NODE, EVENT_OVER, EVENT_LEVEL } from './world.js';
-import { createInput, ACTION_CONFIRM, ACTION_PAUSE } from './input.js';
-import { createRenderer, SCREEN_TITLE, SCREEN_PLAY, SCREEN_PAUSED, SCREEN_OVER } from './render.js';
-import { stageShot } from './shots.js';
+import { AudioEngine } from './audio.js';
+import { Input } from './input.js';
+import { Renderer } from './render.js';
+import { makeShotWorld } from './shots.js';
+import { VIEW } from './config.js';
+import { World } from './world.js';
 
-const MAX_FRAME = 0.25;
+const canvas = document.getElementById('game');
 const params = new URLSearchParams(window.location.search);
 const shot = params.get('shot');
-const seedParam = Number.parseInt(params.get('seed') ?? '', 10);
-const seed = Number.isInteger(seedParam) ? seedParam : Math.floor(Math.random() * 4294967296);
-const canvas = document.getElementById('game');
-const status = document.getElementById('status');
-const world = createWorld(createRandom(seed));
-const renderer = createRenderer(canvas);
-const input = createInput(canvas);
+const seedParam = Number(params.get('seed'));
+const seed = Number.isFinite(seedParam) && seedParam > 0 ? seedParam >>> 0 : (Date.now() >>> 0);
 
-let screen = SCREEN_TITLE;
-let best = readBest();
-let scoreSaved = false;
+const audio = new AudioEngine();
+const world = shot ? makeShotWorld(shot, seed) : new World({ seed, audio });
+if (shot) world.frozen = true;
+const renderer = new Renderer(canvas);
+const input = new Input(canvas, VIEW);
+let lastTime = performance.now();
+let started = false;
 
-function readBest() {
-  try { return Math.max(0, Number(window.localStorage.getItem(BEST_KEY)) || 0); }
-  catch { return 0; }
-}
-function saveBest(v) {
-  try { window.localStorage.setItem(BEST_KEY, String(v)); } catch { /* session-only */ }
-}
-function announce(text) {
-  if (status) status.textContent = text;
-}
+const beginRun = () => {
+  audio.sfx('ui');
+  world.startGame();
+  world.launch();
+};
 
-function startGame() {
-  world.reset();
-  screen = SCREEN_PLAY;
-  scoreSaved = false;
-  announce('Game started. Collect energy, dodge hazards.');
-}
-function endGame() {
-  screen = SCREEN_OVER;
-  if (!scoreSaved) {
-    scoreSaved = true;
-    if (world.state.score > best) { best = world.state.score; saveBest(best); }
+const handlePrimary = () => {
+  if (world.state === 'title') {
+    beginRun();
+    return true;
   }
-  announce(`Signal lost. Score ${world.state.score}. Best ${best}. Press space to restart.`);
-}
+  if (world.state === 'gameover' || world.state === 'victory') {
+    beginRun();
+    return true;
+  }
+  if (world.state === 'paused') {
+    world.togglePause();
+    audio.sfx('ui');
+    return true;
+  }
+  if (world.state === 'playing' && world.balls.some((ball) => ball.stuck)) {
+    world.launch();
+    return true;
+  }
+  return false;
+};
 
-function handleActions() {
-  const a = input.takeActions();
-  if (a & ACTION_CONFIRM) {
-    if (screen === SCREEN_TITLE || screen === SCREEN_OVER) startGame();
-    else if (screen === SCREEN_PAUSED) screen = SCREEN_PLAY;
-  }
-  if (a & ACTION_PAUSE) {
-    if (screen === SCREEN_PLAY) { screen = SCREEN_PAUSED; announce('Paused.'); }
-    else if (screen === SCREEN_PAUSED) { screen = SCREEN_PLAY; announce('Resumed.'); }
-  }
-}
+const frame = (now) => {
+  const dt = Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
+  lastTime = now;
 
-function step() {
-  const dir = input.direction();
-  if (screen === SCREEN_TITLE) {
-    world.step(STEP, { x: 0, y: 0 }, true);
-  } else if (screen === SCREEN_PLAY) {
-    const events = world.step(STEP, dir, false);
-    if (events & EVENT_LEVEL) announce(`Level ${world.state.level}.`);
-    if (events & EVENT_NODE && world.state.overdrive) announce('Overdrive! Double points.');
-    if (events & EVENT_HIT) announce(`Hit. ${world.state.lives} lives left.`);
-    if (events & EVENT_OVER) endGame();
+  if (input.take('KeyM')) {
+    world.muted = !world.muted;
+    audio.setMuted(world.muted);
+    audio.sfx('ui');
   }
-}
 
-function runGame() {
-  let last = performance.now();
-  let acc = 0;
-  function frame(now) {
-    acc += Math.min((now - last) / 1000, MAX_FRAME);
-    last = now;
-    handleActions();
-    while (acc >= STEP) {
-      step();
-      acc -= STEP;
-    }
-    renderer.draw(world.state, screen, best);
-    requestAnimationFrame(frame);
+  const pausePressed = input.take('KeyP') || input.take('Escape');
+  if (pausePressed && (world.state === 'playing' || world.state === 'paused')) {
+    audio.sfx('ui');
+    world.togglePause();
   }
+
+  const primary = input.take('Space') || input.take('Enter') || input.take('Pointer');
+  if (primary) handlePrimary();
+
+  world.update(dt, world.state === 'playing' ? input : null);
+  renderer.draw(world);
+
+  if (!started) {
+    started = true;
+    document.documentElement.dataset.ready = 'true';
+    document.getElementById('boot')?.remove();
+  }
+
+  input.endFrame();
   requestAnimationFrame(frame);
-}
-
-function runShot(name) {
-  const scene = stageShot(name, world);
-  best = Math.max(best, scene.best);
-  let painted = 0;
-  function paint() {
-    renderer.draw(world.state, scene.screen, scene.best);
-    painted += 1;
-    if (painted < 2) requestAnimationFrame(paint);
-    else window.__shotReady = true;
-  }
-  requestAnimationFrame(paint);
-}
+};
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && screen === SCREEN_PLAY) {
-    screen = SCREEN_PAUSED;
-    announce('Paused (window hidden).');
-  }
+  if (document.hidden && world.state === 'playing') world.togglePause();
 });
 
-if (shot) runShot(shot);
-else runGame();
+window.addEventListener('blur', () => {
+  if (world.state === 'playing') world.togglePause();
+});
+
+window.__NEON_BREAKER__ = { world, renderer, audio, input };
+requestAnimationFrame(frame);
