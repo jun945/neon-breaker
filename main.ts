@@ -2,11 +2,11 @@
 // game/ folder, plain static files a desktop browser loads offline (game/index.html and its ES
 // modules, no library and no network request), and the program hands it in. It copies game/ and
 // screenshots/ from beside this file to /output and writes /output/dossier.json, the summary the
-// judge reads, with the vendored make.fun library. A starting point, not a winner: Block Dodger, a
-// plain 2D canvas game where a paddle dodges falling blocks and catches coins, with a title screen,
-// score, lives and levels, game over and restart, flat colours and no sound. Build your own game
-// (any genre, any library you vendor under game/, or none), put your 3 or 4 PNG or JPEG screenshots
-// in screenshots/ (the first by name is the cover) and run it.
+// judge reads, with the vendored make.fun library. This entry is NEON PULSE: a synthwave top-down
+// arena survival game. Guide a glowing hexagonal core, collect green energy nodes for score and
+// combo multipliers, and dodge pink hazards; a x9 combo triggers OVERDRIVE with double points and
+// every level ramps the pace. Title, play, pause and game-over screens with a full HUD, keyboard
+// and pointer control, and deterministic seeds for screenshots. Three PNG screenshots are included.
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
@@ -19,6 +19,9 @@ import { buildDossier } from './vendor/makefun-game.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+
+// NEON PULSE entry: emit which build is being dossiers so the transcript records our authorship.
+console.log('[neon-pulse] assembling dossier from game/ and screenshots/ into ' + out);
 
 mkdirSync(out, { recursive: true });
 cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
