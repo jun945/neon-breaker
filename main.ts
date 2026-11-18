@@ -3,14 +3,16 @@
 // directly via type stripping; no install or build step is required.
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
 
-const output = process.env.OUTPUT_DIR ?? '/output';
+const here = fileURLToPath(new URL('.', import.meta.url));
+const output = process.env.OUTPUT_DIR ?? process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
-cpSync('game', join(output, 'game'), { recursive: true });
-cpSync('screenshots', join(output, 'screenshots'), { recursive: true });
+cpSync(join(here, 'game'), join(output, 'game'), { recursive: true });
+cpSync(join(here, 'screenshots'), join(output, 'screenshots'), { recursive: true });
 
 const dossier = buildDossier(output, {
   text_max_bytes: 163840,
